@@ -1,0 +1,197 @@
+syntax = "proto3";
+
+// Optional: Define package for C++ namespace
+package hawk;
+
+// Enum for lock modes
+enum LockMode {
+  SHARED = 0;
+  EXCLUSIVE = 1;
+}
+
+// WFDEdge structure (for WFG and PAG)
+message WFDEdge {
+  int32 waiting_trans_id = 1;
+  int32 holding_trans_id = 2;
+  int32 waiting_node_id = 3;
+  int32 holding_node_id = 4;
+}
+
+// Network Message Types
+enum NetworkMessageType {
+  UNKNOWN = 0; // Default for uninitialized messages
+
+  // Transaction/Lock Management
+  LOCK_REQUEST = 1;
+  LOCK_RESPONSE = 2;
+  RELEASE_LOCK_REQUEST = 3;
+  RELEASE_LOCK_RESPONSE = 4;
+
+  // PAG/WFG related
+  PAG_REQUEST = 5;
+  PAG_RESPONSE = 6;
+  WFG_REPORT = 7;
+
+  // Deadlock Resolution
+  DEADLOCK_RESOLUTION = 8;
+  ABORT_TRANSACTION_SIGNAL = 9;
+
+  // Hierarchical/Zonal Detection (HAWK)
+  DISTRIBUTED_DETECTION_INIT = 10; // For broadcasting detection zones
+  ZONE_DETECTION_REQUEST = 11;
+  ZONE_WFG_REPORT = 12;
+  CENTRAL_WFG_REPORT_FROM_ZONE = 13;
+
+  // Path-Pushing Detection
+  PATH_PUSHING_PROBE = 14;
+
+  // Client-Server Communication
+  CLIENT_COLLECT_WFG_REQUEST = 15;
+  CLIENT_COLLECT_WFG_RESPONSE = 16; // Also used for WFG_REPORT
+  CLIENT_PRINT_DEADLOCK_REQUEST = 17;
+  CLIENT_RESOLVE_DEADLOCK_REQUEST = 18;
+  DEADLOCK_REPORT_TO_CLIENT = 19;
+}
+
+// NetworkMessage structure (based on commons.h)
+message NetworkMessage {
+  NetworkMessageType type = 1;
+  int32 sender_id = 2;
+  int32 receiver_id = 3; // 0 for broadcast
+
+  // --- Nested Message Definitions (moved outside oneof) ---
+
+  // For LOCK_REQUEST
+  message LockRequestData {
+    int32 trans_id = 1;
+    int32 resource_id = 2;
+    LockMode mode = 3;
+  }
+
+  // For LOCK_RESPONSE
+  message LockResponseData {
+    int32 trans_id = 1;
+    int32 resource_id = 2;
+    bool granted = 3; // true if granted, false if blocked/aborted
+  }
+
+  // For RELEASE_LOCK_REQUEST / RELEASE_LOCK_RESPONSE
+  message ReleaseLockData {
+    int32 trans_id = 1;
+    int32 resource_id = 2; // Specific resource to release, 0 if all
+  }
+
+  // For WFG_REPORT / ZONE_WFG_REPORT / CLIENT_COLLECT_WFG_RESPONSE / CENTRAL_WFG_REPORT_FROM_ZONE
+  // Map of TransactionId to list of TransactionIds
+  // Represented as a list of (key, value list) pairs
+  message WFGData {
+    message PairTransactionIdList { // Nested message for map entry
+        int32 key = 1;
+        repeated int32 value = 2;
+    }
+    repeated PairTransactionIdList wfg_data_pairs = 1;
+  }
+
+  // For DEADLOCK_RESOLUTION / ABORT_TRANSACTION_SIGNAL
+  message AbortTransactionData {
+    repeated int32 deadlocked_transactions = 1;
+  }
+
+  // For PAG_RESPONSE
+  message PagData {
+    repeated WFDEdge pag_edges = 1;
+  }
+
+  // For DISTRIBUTED_DETECTION_INIT
+  // detectionZones: outer vector for multiple zones, inner vector for node IDs in each zone
+  // detectionZoneLeaders: corresponding leader ID for each zone
+  message DetectionZoneInitData {
+    message NodeList { // Nested message for detectionZones
+        repeated int32 nodes = 1;
+    }
+    repeated NodeList detection_zones = 1;
+    repeated int32 detection_zone_leaders = 2;
+  }
+
+  // For CLIENT_RESOLVE_DEADLOCK_REQUEST
+  message ResolveDeadlockRequestData {
+    int32 victim_trans_id = 1;
+  }
+
+  // For DEADLOCK_REPORT_TO_CLIENT
+  message DeadlockReportToClientData {
+    message TransactionList { // Nested message for detectedCycles
+        repeated int32 transactions = 1;
+    }
+    repeated TransactionList detected_cycles = 1;
+    int32 deadlock_count = 2; // From commons.h, added for reporting
+  }
+
+  // For PATH_PUSHING_PROBE
+  message PathPushingProbeData {
+    repeated int32 path = 1;
+  }
+
+  // For ZONE_DETECTION_REQUEST
+  message ZoneDetectionRequestData {
+      int32 central_node_id = 1;
+      repeated int32 zone_members = 2;
+  }
+
+  // For CENTRAL_WFG_REPORT_FROM_ZONE (Combines WFGData with cycles and count)
+  message CentralWFGReportFromZoneData {
+      WFGData wfg_data = 1; // Re-use WFGData message
+      repeated DeadlockReportToClientData.TransactionList detected_cycles = 2; // Reference nested TransactionList
+      int32 reported_deadlock_count = 3;
+  }
+
+
+  // --- Oneof Payload (referencing the above nested messages) ---
+  oneof payload {
+    LockRequestData lock_request_data = 4;
+    LockResponseData lock_response_data = 5;
+    ReleaseLockData release_lock_data = 6;
+    WFGData wfg_data = 7;
+    AbortTransactionData abort_transaction_data = 8;
+    PagData pag_data = 9;
+    DetectionZoneInitData detection_zone_init_data = 10;
+    ResolveDeadlockRequestData resolve_deadlock_request_data = 11;
+    DeadlockReportToClientData deadlock_report_to_client_data = 12;
+    PathPushingProbeData path_pushing_probe_data = 13;
+    ZoneDetectionRequestData zone_detection_request_data = 14;
+    CentralWFGReportFromZoneData central_wfg_report_data = 15;
+  }
+}
+
+// gRPC Service Definition (remains unchanged)
+service HawkService {
+  // Transaction/Lock Management
+  rpc SendLockRequest(NetworkMessage) returns (NetworkMessage);
+  rpc SendLockResponse(NetworkMessage) returns (NetworkMessage);
+  rpc SendReleaseLockRequest(NetworkMessage) returns (NetworkMessage);
+  rpc SendReleaseLockResponse(NetworkMessage) returns (NetworkMessage);
+
+  // PAG/WFG related
+  rpc SendPAGRequest(NetworkMessage) returns (NetworkMessage);
+  rpc SendPAGResponse(NetworkMessage) returns (NetworkMessage);
+  rpc SendWFGReport(NetworkMessage) returns (NetworkMessage); // Used for WFG_REPORT and CLIENT_COLLECT_WFG_RESPONSE
+
+  // Deadlock Resolution
+  rpc SendDeadlockResolution(NetworkMessage) returns (NetworkMessage);
+  rpc SendAbortTransactionSignal(NetworkMessage) returns (NetworkMessage);
+
+  // Hierarchical/Zonal Detection (HAWK)
+  rpc SendDistributedDetectionInit(NetworkMessage) returns (NetworkMessage);
+  rpc SendZoneDetectionRequest(NetworkMessage) returns (NetworkMessage);
+  rpc SendZoneWFGReport(NetworkMessage) returns (NetworkMessage);
+  rpc SendCentralWFGReportFromZone(NetworkMessage) returns (NetworkMessage);
+
+  // Path-Pushing Detection
+  rpc SendPathPushingProbe(NetworkMessage) returns (NetworkMessage);
+
+  // Client-Server Communication
+  rpc SendClientCollectWFGRequest(NetworkMessage) returns (NetworkMessage);
+  rpc SendClientPrintDeadlockRequest(NetworkMessage) returns (NetworkMessage);
+  rpc SendClientResolveDeadlockRequest(NetworkMessage) returns (NetworkMessage);
+  rpc SendDeadlockReportToClient(NetworkMessage) returns (NetworkMessage);
+}
