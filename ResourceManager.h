@@ -7,6 +7,10 @@
 #include <mutex>
 #include <functional>
 
+// ResourceManager is responsible for managing local resources and handling lock requests
+// and releases for those resources. It maintains who holds which locks and who is waiting.
+// This component forms the foundation for building the Wait-For Graph (WFG) used
+// in various deadlock detection schemes, including HAWK.
 class ResourceManager
 {
 public:

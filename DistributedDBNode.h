@@ -27,7 +27,9 @@
 #ifdef TRANSACTION_TYPE_TPCC
 #include "tpcc.h"
 #endif
-
+// DistributedDBNode represents a single node in the distributed database system.
+// It orchestrates resource management, transaction processing, lock table operations,
+// and, crucially, distributed deadlock detection (including HAWK).
 class DistributedDBNode
 {
 public:
@@ -36,6 +38,7 @@ public:
 
     void run();
 
+    // Retrieves the latencies of all completed transactions on this node.
     std::vector<long long> getCompletedTransactionLatencies();
 
 private:
@@ -110,22 +113,45 @@ private:
     TransactionId selectVictim(const std::vector<TransactionId> &cycle, const std::unordered_map<TransactionId, int> &transactionFrequencies);
 
     void handleWFGReport(NodeId reporterNodeId, const std::unordered_map<TransactionId, std::vector<TransactionId>> &wfgData);
+    // Handles a PAG request from another node.
+    // In HAWK, this involves collecting and sending local cross-node WFDEdges.
     void handlePAGRequest(NodeId requesterNodeId);
+    // Handles a PAG response containing PAG edges from another node.
+    // This is received by the central node to aggregate the global PAG.
     void handlePAGResponse(NodeId reporterNodeId, const std::vector<WFDEdge> &pagEdges);
     void handleDeadlockResolution(const std::vector<TransactionId> &transIdsToAbort);
     void handleAbortTransactionSignal(const std::vector<TransactionId> &transIdsToAbort);
-
+    // Handles the initiation of distributed detection (e.g., zone updates).
+    // This message is sent by the central node to all nodes to distribute the new detection zones.
+    // detectionZones: The new set of detection zones.
+    // detectionZoneLeaders: The leaders for each of the new zones.
     void handleDistributedDetectionInit(const std::vector<std::vector<NodeId>>& detectionZones, const std::vector<NodeId>& detectionZoneLeaders);
+    // Handles a request from a zone leader to its members to collect and report WFG data.
+    // centralNodeId: The ID of the zone leader making the request.
+    // zoneMembers: The list of nodes that are part of this zone.
     void handleZoneDetectionRequest(NodeId centralNodeId, const std::vector<NodeId>& zoneMembers);
+    // Handles a WFG report from a zone member to its zone leader.
+    // This report contains the local WFG (pruned for active transactions).
+    // reporterNodeId: The ID of the node sending the report.
+    // wfgDataPairs: The local WFG data in a serialized format.
     void handleZoneWFGReport(NodeId reporterNodeId, const std::vector<std::pair<TransactionId, std::vector<TransactionId>>> &wfgDataPairs);
+    // Handles an aggregated WFG report sent by a zone leader to the central node.
+    // This message contains the WFG aggregated by the zone leader and any deadlocks detected within that zone.
+    // zoneLeaderId: The ID of the zone leader sending the report.
+    // wfgDataPairs: The aggregated WFG data from the zone.
+    // detectedCycles: Deadlock cycles detected by the zone leader.
+    // reportedDeadlockCount: Number of deadlocks detected by the zone leader.
     void handleCentralWFGReportFromZone(NodeId zoneLeaderId, const std::vector<std::pair<TransactionId, std::vector<TransactionId>>> &wfgDataPairs, const std::vector<std::vector<TransactionId>>& detectedCycles, int reportedDeadlockCount);
 
     void handlePathPushingProbe(const NetworkMessage& msg);
     void initiatePathPushingProbes();
 
+    // Merges WFG data from a source into a target WFG.
+    // Used for aggregating WFG data in both centralized and HAWK modes.
     void mergeWFG(std::unordered_map<TransactionId, std::vector<TransactionId>>& targetWfg,
                   const std::vector<std::pair<TransactionId, std::vector<TransactionId>>>& sourceData);
 
+    // Converts WFG data from internal map format to a vector of pairs for network transmission.
     std::vector<std::pair<TransactionId, std::vector<TransactionId>>>
     convertWFGToMessageFormat(const std::unordered_map<TransactionId, std::vector<TransactionId>>& wfg);
 

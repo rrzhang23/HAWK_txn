@@ -2,6 +2,25 @@
 
 HAWK is an innovative workload-driven hierarchical deadlock detection algorithm designed for distributed database systems. It addresses scalability and efficiency challenges by dynamically constructing a hierarchical detection tree based on transaction patterns, significantly reducing time complexity and communication overhead.
 
+## Core Components
+The system is composed of the following key components:
+
+`DistributedDBNode`: Each node manages local resources, transactions, and participates in deadlock detection protocols.
+
+`ResourceManager`: Responsible for local resource lock management, including acquiring and releasing locks, and managing resource holders and waiting queues.
+
+`TransactionManager`: Manages the lifecycle of transactions on a node. It handles transaction initiation, SQL statement execution, and commitment or abortion. It also processes lock requests for local or remote resources.
+
+`LockTable`: Maintains Wait-For Graph (WFG) information on the node, including local waiting edges and cross-node waiting edges. This information forms the basis for deadlock detection.
+
+`Network`: Encapsulates gRPC client and server logic for inter-node communication. It defines all message types and RPC services, enabling requests, responses, and data exchange between nodes.
+
+`DeadlockDetector`: Implements graph algorithms (e.g., Depth First Search DFS) to find cycles (i.e., deadlocks) within a given Wait-For Graph.
+
+`PAGManager`: Used in HAWK mode to generate and cut predicted access graph (PAG) to partition deadlock detection zones.
+
+`DetectionZoneManager`: Manages a node's assigned deadlock detection zone information, including zone members and the zone leader.
+
 ## Environment Setup
 Before compiling and running the project, you need to install gRPC and Protobuf.
 

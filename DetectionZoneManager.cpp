@@ -6,7 +6,10 @@ DetectionZoneManager::DetectionZoneManager(NodeId nodeId) : nodeId(nodeId), myZo
     detectionZones[nodeId].push_back(nodeId);
     myDetectionZoneMembers_.push_back(nodeId);
 }
-
+// Updates the detection zones and leaders.
+// This function receives the new global detection zone configuration (e.g., from a central node)
+// and updates the local state of the manager, determining this node's new zone and leader.
+// This is a crucial step in the adaptive nature of HAWK where zones can change over time.
 void DetectionZoneManager::updateDetectionZones(const std::vector<std::vector<NodeId>> &newZones, const std::vector<NodeId>& newLeaders)
 {
     std::unique_lock<std::mutex> lock(zoneMutex); 

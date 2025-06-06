@@ -3,7 +3,9 @@
 #include <set>
 #include <iostream>
 #include <unordered_set>
-
+// Helper DFS function for finding Strongly Connected Components (SCCs) using Tarjan's algorithm.
+// This is used internally by `greedySCCcut` to analyze the PAG and identify potential detection zones
+// in the HAWK scheme. It marks nodes with discovery times and low-link values to detect SCCs.
 void PAGManager::findSCCsDFS(NodeId u,
                              const PAG &graph,
                              std::unordered_map<NodeId, int> &disc,
@@ -49,7 +51,10 @@ void PAGManager::findSCCsDFS(NodeId u,
         sccs.push_back(scc);
     }
 }
-
+// Generates the PAG from sampled cross-node WFD edges.
+// This function constructs the graph where nodes are database nodes and edges represent
+// "waits-for" relationships between transactions residing on different nodes.
+// This PAG is then used by HAWK to identify and manage detection zones.
 PAG PAGManager::generatePAG(const std::vector<WFDEdge> &sampledPagEdges)
 {
     PAG pag;
@@ -63,7 +68,11 @@ PAG PAGManager::generatePAG(const std::vector<WFDEdge> &sampledPagEdges)
     std::cout << "PAGManager: Generated PAG with " << pag.size() << " nodes (unique waiting nodes).\n";
     return pag;
 }
-
+// Implements the greedy SCC (Strongly Connected Component) cutting algorithm for HAWK.
+// This function takes the constructed PAG and partitions the nodes into detection zones
+// based on their SCCs. SCCs larger than a given threshold become dedicated detection zones.
+// Nodes not part of such large SCCs become singleton zones.
+// This is a core component of HAWK's adaptive zone formation.
 std::pair<std::vector<std::vector<NodeId>>, std::vector<NodeId>>
 PAGManager::greedySCCcut(const PAG &pag, int threshold)
 {

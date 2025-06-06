@@ -29,26 +29,26 @@ using TransactionId = int;
 using ResourceId = int;
 
 
-const int NUM_NODES = 128;
-const int RESOURCES_PER_NODE = 1000;
-const int TOTAL_RESOURCES = NUM_NODES * RESOURCES_PER_NODE;
+const int NUM_NODES = 128; // Total number of nodes in the distributed database system.
+const int RESOURCES_PER_NODE = 1000; // Number of resources managed by each node.
+const int TOTAL_RESOURCES = NUM_NODES * RESOURCES_PER_NODE; // Total number of resources across all nodes.
 
 
-const double SQL_COUNT_LAMBDA = 1.0 / 30.0;
-const int MIN_SQLS_PER_TRANSACTION = 10;
-const int MAX_SQLS_PER_TRANSACTION = 50;
+const double SQL_COUNT_LAMBDA = 1.0 / 30.0; // Lambda parameter for exponential distribution of SQL statements per transaction.
+const int MIN_SQLS_PER_TRANSACTION = 10; // Minimum number of SQL statements per transaction.
+const int MAX_SQLS_PER_TRANSACTION = 50; // Maximum number of SQL statements per transaction.
 
 
-const double RESOURCE_REQUEST_LAMBDA = 1.0 / 1.2;
-const int MIN_RESOURCES_PER_SQL = 1;
-const int MAX_RESOURCES_PER_SQL = 5;
+const double RESOURCE_REQUEST_LAMBDA = 1.0 / 1.2; // Lambda parameter for exponential distribution of resource requests per SQL statement.
+const int MIN_RESOURCES_PER_SQL = 1; // Minimum number of resources requested per SQL statement.
+const int MAX_RESOURCES_PER_SQL = 5; // Maximum number of resources requested per SQL statement.
 
 
-const int MAX_CONCURRENT_TRANSACTIONS_PER_NODE = 8;
+const int MAX_CONCURRENT_TRANSACTIONS_PER_NODE = 8; // Maximum number of transactions concurrently active on a single node.
 // const int TRANSACTION_POLLING_INTERVAL_MS = 1;
 
 
-const double EXCLUSIVE_LOCK_PROBABILITY = 0.5;
+const double EXCLUSIVE_LOCK_PROBABILITY = 0.5; // Probability of an exclusive lock request.
 
 
 const int DEADLOCK_DETECTION_INTERVAL_MS = 50;
@@ -75,9 +75,9 @@ const NodeId CENTRALIZED_NODE_ID = 1;
 
 enum DeadlockDetectionMode {
     MODE_NONE = 0, 
-    MODE_CENTRALIZED = 1, 
-    MODE_HAWK = 2,  
-    MODE_PATH_PUSHING = 3 
+    MODE_CENTRALIZED = 1,  // Centralized deadlock detection mode.
+    MODE_HAWK = 2,   // HAWK (Hierarchical Adaptive Wait-for Graph) deadlock detection mode.
+    MODE_PATH_PUSHING = 3  // Path Pushing deadlock detection mode.
 };
 
 
@@ -97,18 +97,19 @@ enum class LockMode
     EXCLUSIVE 
 };
 
-
+// Represents a single SQL statement within a transaction.
 struct SQLStatement
 {
-    TransactionId transId;
-    NodeId homeNodeId;
-    std::vector<ResourceId> resources; 
-    LockMode lockMode;          
+    TransactionId transId; // The ID of the transaction to which this SQL statement belongs.
+    NodeId homeNodeId; // The home node of the transaction.
+    std::vector<ResourceId> resources; // List of resources requested by this SQL statement.
+    LockMode lockMode;            // The type of lock requested (SHARED or EXCLUSIVE).
 };
 
 
 
-
+// Types of network messages exchanged between nodes for various operations,
+// including lock management, PAG updates, and deadlock detection.
 enum NetworkMessageType
 {
     UNKNOWN = 0, 
@@ -146,7 +147,7 @@ enum NetworkMessageType
 };
 
 
-
+// Represents an edge in the Wait-For Graph (WFG) or PAG.
 struct WFDEdge
 {
     TransactionId waitingTransId;
@@ -156,7 +157,8 @@ struct WFDEdge
 };
 
 
-
+// Structure for network messages, containing various fields depending on the message type.
+// This union-like structure allows different types of data to be carried by a single message.
 struct NetworkMessage
 {
     NetworkMessageType type;
@@ -200,13 +202,14 @@ struct NetworkMessage
     std::vector<NodeId> zoneMembers; 
 };
 
-
+// Utility function to determine the owner node of a given resource.
+// Resources are distributed among nodes based on their ID.
 inline NodeId getOwnerNodeId(ResourceId resId)
 {
     return (resId - 1) / RESOURCES_PER_NODE + 1;
 }
 
-const int NUM_DOMAINS = 16;
+const int NUM_DOMAINS = 16; // Number of zones (for TPCC partitioning).
 const int NODES_PER_DOMAIN = NUM_NODES / NUM_DOMAINS;
 const double DOMAIN_LOCAL_ACCESS_PROBABILITY = 0.80;
 const double DOMAIN_REMOTE_ACCESS_PROBABILITY = 0.20; 
